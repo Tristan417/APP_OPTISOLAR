@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptiSolar - Carte des Panneaux</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', Arial, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .panel-popup {
+            font-family: 'Roboto', Arial, sans-serif;
+        }
+        .panel-popup h3 {
+            margin: 0 0 10px 0;
+            color: #1976D2;
+        }
+        .panel-popup .status {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .status-actif {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status-inactif {
+            background-color: #9E9E9E;
+            color: white;
+        }
+        .status-defectueux {
+            background-color: #F44336;
+            color: white;
+        }
+        .panel-info {
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .panel-info strong {
+            color: #424242;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Initialisation de la carte centrée sur Laon (Aisne 02)
+        var map = L.map('map').setView([49.5639, 3.6253], 13);
+        
+        // Ajouter le layer OpenStreetMap avec configuration pour éviter le blocage
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19,
+            crossOrigin: true
+        }).addTo(map);
+
+        // Icônes personnalisées selon le statut
+        var iconActif = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iNDIiIHZpZXdCb3g9IjAgMCAzMiA0MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTYgMEMxMC40OCAwIDYgNC40OCA2IDEwYzAgNy41IDEwIDE4IDEwIDE4czEwLTEwLjUgMTAtMThjMC01LjUyLTQuNDgtMTAtMTAtMTB6IiBmaWxsPSIjNENBRjUwIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMCIgcj0iNSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+            iconSize: [32, 42],
+            iconAnchor: [16, 42],
+            popupAnchor: [0, -42]
+        });
+
+        var iconInactif = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iNDIiIHZpZXdCb3g9IjAgMCAzMiA0MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTYgMEMxMC40OCAwIDYgNC40OCA2IDEwYzAgNy41IDEwIDE4IDEwIDE4czEwLTEwLjUgMTAtMThjMC01LjUyLTQuNDgtMTAtMTAtMTB6IiBmaWxsPSIjOUU5RTlFIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMCIgcj0iNSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+            iconSize: [32, 42],
+            iconAnchor: [16, 42],
+            popupAnchor: [0, -42]
+        });
+
+        var iconDefectueux = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iNDIiIHZpZXdCb3g9IjAgMCAzMiA0MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTYgMEMxMC40OCAwIDYgNC40OCA2IDEwYzAgNy41IDEwIDE4IDEwIDE4czEwLTEwLjUgMTAtMThjMC01LjUyLTQuNDgtMTAtMTAtMTB6IiBmaWxsPSIjRjQ0MzM2Ii8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMCIgcj0iNSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+            iconSize: [32, 42],
+            iconAnchor: [16, 42],
+            popupAnchor: [0, -42]
+        });
+
+        var markers = [];
+
+        // Fonction pour ajouter un panneau sur la carte
+        function addPanel(panel) {
+            var icon;
+            var statusClass;
+            
+            switch(panel.status) {
+                case 0: // Actif
+                    icon = iconActif;
+                    statusClass = 'status-actif';
+                    break;
+                case 1: // Inactif
+                    icon = iconInactif;
+                    statusClass = 'status-inactif';
+                    break;
+                case 2: // Défectueux
+                    icon = iconDefectueux;
+                    statusClass = 'status-defectueux';
+                    break;
+                default:
+                    icon = iconInactif;
+                    statusClass = 'status-inactif';
+            }
+
+            var popupContent = `
+                <div class="panel-popup">
+                    <h3>${panel.name}</h3>
+                    <div class="status ${statusClass}">${panel.statusText}</div>
+                    <div class="panel-info">
+                        <strong>Coordonnées:</strong><br>
+                        Lat: ${panel.latitude.toFixed(6)}<br>
+                        Lon: ${panel.longitude.toFixed(6)}
+                    </div>
+            `;
+
+            if (panel.deviceId) {
+                popupContent += `
+                    <div class="panel-info">
+                        <strong>ID:</strong> ${panel.deviceId}
+                    </div>
+                `;
+            }
+
+            if (panel.voltage !== null && panel.voltage !== undefined) {
+                popupContent += `
+                    <div class="panel-info">
+                        <strong>Tension:</strong> ${panel.voltage.toFixed(2)} V
+                    </div>
+                `;
+            }
+
+            popupContent += `
+                    <div class="panel-info" style="font-size: 11px; color: #757575; margin-top: 10px;">
+                        Dernière mise à jour: ${new Date(panel.lastUpdate).toLocaleString('fr-FR')}
+                    </div>
+                </div>
+            `;
+
+            var marker = L.marker([panel.latitude, panel.longitude], { icon: icon })
+                .bindPopup(popupContent)
+                .addTo(map);
+            
+            markers.push({ id: panel.id, marker: marker });
+        }
+
+        // Fonction pour supprimer tous les marqueurs
+        function clearMarkers() {
+            markers.forEach(item => {
+                map.removeLayer(item.marker);
+            });
+            markers = [];
+        }
+
+        // Fonction pour mettre à jour les panneaux SANS AUTO-ZOOM
+        function updatePanels(panels) {
+            console.log('=== updatePanels appelée ===');
+            console.log('Nombre de panneaux:', panels ? panels.length : 0);
+            
+            clearMarkers();
+            
+            if (panels && panels.length > 0) {
+                console.log('Ajout des marqueurs...');
+                panels.forEach(panel => {
+                    console.log('Ajout panneau:', panel.name);
+                    addPanel(panel);
+                });
+                console.log('Marqueurs ajoutés. AUCUN ZOOM effectué.');
+            } else {
+                console.log('Aucun panneau à afficher');
+            }
+            
+            console.log('=== Fin updatePanels ===');
+        }
+
+        // Fonction appelée depuis C#
+        function receivePanels(jsonPanels) {
+            try {
+                var panels = JSON.parse(jsonPanels);
+                updatePanels(panels);
+            } catch (e) {
+                console.error('Erreur parsing JSON:', e);
+            }
+        }
+    </script>
+</body>
+</html>
